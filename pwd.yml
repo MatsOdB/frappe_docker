@@ -2,16 +2,20 @@ version: "3"
 
 services:
   backend:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: on-failure
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - erpwork
 
   configurator:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: none
@@ -37,9 +41,12 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - erpwork
 
   create-site:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: none
@@ -68,9 +75,12 @@ services:
         done;
         echo "sites/common_site_config.json found";
         bench new-site --no-mariadb-socket --admin-password=admin --db-root-password=admin --install-app erpnext --set-default frontend;
+    networks:
+      - erpwork
 
   db:
-    image: mariadb:10.6
+    image: mariadb
+    platform: linux/amd64
     healthcheck:
       test: mysqladmin ping -h localhost --password=admin
       interval: 1s
@@ -87,9 +97,12 @@ services:
       MYSQL_ROOT_PASSWORD: admin
     volumes:
       - db-data:/var/lib/mysql
+    networks:
+      - erpwork
 
   frontend:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     depends_on:
       - websocket
     deploy:
@@ -106,14 +119,26 @@ services:
       UPSTREAM_REAL_IP_RECURSIVE: "off"
       PROXY_READ_TIMEOUT: 120
       CLIENT_MAX_BODY_SIZE: 50m
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.erpnext.entrypoints=web,websecure
+      - traefik.http.routers.erpnext.rule=Host(`erp.matsopdebeeck.be`)
+      - traefik.http.routers.erpnext.tls=true
+      - traefik.http.routers.erpnext.tls.certresolver=production
+      - traefik.http.services.erpnext.loadbalancer.server.port=8080
+      - traefik.docker.network=traefik_network
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     ports:
       - "8080:8080"
+    networks:
+      - erpwork
+      - twork
 
   queue-long:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: on-failure
@@ -125,9 +150,12 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - erpwork
 
   queue-short:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: on-failure
@@ -139,25 +167,34 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - erpwork
 
   redis-queue:
     image: redis:6.2-alpine
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: on-failure
     volumes:
       - redis-queue-data:/data
+    networks:
+      - erpwork
 
   redis-cache:
     image: redis:6.2-alpine
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: on-failure
     volumes:
       - redis-cache-data:/data
+    networks:
+      - erpwork
 
   scheduler:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: on-failure
@@ -167,9 +204,12 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - erpwork
 
   websocket:
-    image: frappe/erpnext:v15.40.0
+    image: frappe/erpnext
+    platform: linux/amd64
     deploy:
       restart_policy:
         condition: on-failure
@@ -179,6 +219,8 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    networks:
+      - erpwork
 
 volumes:
   db-data:
@@ -186,3 +228,10 @@ volumes:
   redis-cache-data:
   sites:
   logs:
+
+networks:
+  erpwork:
+    name: erp_next_default
+  twork:
+    name: traefik_network
+    external: true
